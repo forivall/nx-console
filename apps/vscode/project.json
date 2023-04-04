@@ -103,8 +103,8 @@
           "optimization": false
         },
         "production": {
-          "sourceMap": false,
-          "optimization": true,
+          "sourceMap": true,
+          "optimization": false,
           "extractLicenses": true,
           "externalDependencies": [
             "vscode",

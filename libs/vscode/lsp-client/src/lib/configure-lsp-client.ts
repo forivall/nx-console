@@ -22,6 +22,7 @@ export function configureLspClient(
   refreshCommand: string | undefined
 ): Disposable {
   if (client) {
+    getOutputChannel().appendLine('Using existing client');
     sendNotification(NxChangeWorkspace, getWorkspacePath());
     return {
       dispose,
@@ -73,6 +74,7 @@ export function configureLspClient(
     }
   });
 
+  getOutputChannel().appendLine('Initialized lsp client');
   return {
     dispose,
   };
@@ -91,6 +93,7 @@ export function sendNotification<P>(
   notificationType: NotificationType<P>,
   params?: P
 ) {
+  getOutputChannel().appendLine(`sendNotification: ${notificationType.method}`);
   client!.sendNotification(notificationType, params);
 }
 
@@ -98,5 +101,11 @@ export function sendRequest<P, R, E>(
   requestType: RequestType<P, R, E>,
   params: P
 ) {
+  getOutputChannel().appendLine(`sendRequest: ${requestType.method}`);
+  if (!client) {
+    getOutputChannel().appendLine(
+      `client not initialized! ${new Error().stack}`
+    );
+  }
   return client!.sendRequest(requestType, params);
 }

@@ -99,7 +99,7 @@ async function getNxPackage<T>(
   importPath: string | undefined,
   backupPackage: T,
   cache: T,
-  logger: Logger
+  logger: Logger | undefined
 ): Promise<T> {
   try {
     if (!importPath) {
