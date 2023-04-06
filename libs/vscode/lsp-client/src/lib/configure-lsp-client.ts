@@ -3,6 +3,7 @@ import {
   NxChangeWorkspace,
   NxWorkspaceRefreshNotification,
 } from '@nx-console/language-server/types';
+import { NxWorkspace } from '@nx-console/shared/types';
 import { getOutputChannel, getWorkspacePath } from '@nx-console/vscode/utils';
 import { join } from 'path';
 import { commands, Disposable, ExtensionContext } from 'vscode';
@@ -16,6 +17,12 @@ import {
 } from 'vscode-languageclient/node';
 
 let client: LanguageClient | undefined;
+let pending: Array<
+  { resolve: (value: any) => void; params: any } & (
+    | { method: 'sendRequest'; type: RequestType<any, any, any> }
+    | { method: 'sendNotification'; type: NotificationType<any> }
+  )
+> = [];
 
 export function configureLspClient(
   context: ExtensionContext,
@@ -66,6 +73,18 @@ export function configureLspClient(
 
   client.start();
 
+  for (const action of pending) {
+    switch (action.method) {
+      case 'sendNotification':
+        action.resolve(client.sendNotification(action.type, action.params));
+        break;
+      case 'sendRequest':
+        action.resolve(client.sendRequest(action.type, action.params));
+        break;
+    }
+  }
+  pending = [];
+
   // nxls is telling us to refresh projects on this side
   client.onNotification(NxWorkspaceRefreshNotification, () => {
     if (refreshCommand) {
@@ -94,7 +113,17 @@ export function sendNotification<P>(
   params?: P
 ) {
   getOutputChannel().appendLine(`sendNotification: ${notificationType.method}`);
-  client!.sendNotification(notificationType, params);
+  if (!client) {
+    return new Promise<void>((resolve) => {
+      pending.push({
+        resolve,
+        method: 'sendNotification',
+        type: notificationType,
+        params,
+      });
+    });
+  }
+  return client!.sendNotification(notificationType, params);
 }
 
 export function sendRequest<P, R, E>(
@@ -103,9 +132,14 @@ export function sendRequest<P, R, E>(
 ) {
   getOutputChannel().appendLine(`sendRequest: ${requestType.method}`);
   if (!client) {
-    getOutputChannel().appendLine(
-      `client not initialized! ${new Error().stack}`
-    );
+    return new Promise<R>((resolve) => {
+      pending.push({
+        resolve,
+        method: 'sendRequest',
+        type: requestType,
+        params,
+      });
+    });
   }
-  return client!.sendRequest(requestType, params);
+  return client.sendRequest(requestType, params);
 }
